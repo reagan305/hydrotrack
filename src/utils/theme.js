@@ -1,0 +1,17 @@
+export const themeColors = () => ({
+  pageBg: "var(--page-bg)",
+  cardBg: "var(--card-bg)",
+  softBg: "var(--soft-bg)",
+  text: "var(--text-main)",
+  subtext: "var(--text-muted)",
+  border: "var(--border-color)",
+  navBg: "var(--nav-bg)",
+  dangerBg: "var(--danger-bg)",
+  dangerText: "var(--danger-text)",
+  successBg: "var(--success-bg)",
+  successText: "var(--success-text)",
+  warningBg: "var(--warning-bg)",
+  warningText: "var(--warning-text)",
+  infoBg: "var(--info-bg)",
+  infoText: "var(--info-text)",
+});
