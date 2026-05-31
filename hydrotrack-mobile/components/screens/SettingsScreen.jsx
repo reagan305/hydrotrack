@@ -29,31 +29,10 @@ export default function SettingsScreen() {
   };
 
   const handleChange = (field, value) => {
-    setSettings((prev) => {
-      const updated = { ...prev, [field]: value };
-
-      if (field === "lowLevelThreshold") {
-        const validTargets = [40, 60, 80, 100].filter(
-          (level) => level > Number(value)
-        );
-
-        if (!validTargets.includes(Number(updated.defaultTargetLevel))) {
-          updated.defaultTargetLevel = validTargets[0] || 100;
-        }
-      }
-
-      if (field === "defaultTargetLevel") {
-        if (Number(value) <= Number(updated.lowLevelThreshold)) {
-          const validTargets = [40, 60, 80, 100].filter(
-            (level) => level > Number(updated.lowLevelThreshold)
-          );
-
-          updated.defaultTargetLevel = validTargets[0] || 100;
-        }
-      }
-
-      return updated;
-    });
+    setSettings((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
   };
 
   const handleSave = async () => {
@@ -81,14 +60,15 @@ export default function SettingsScreen() {
   const theme = getAppTheme(settings.theme);
   const styles = getStyles(theme);
 
-  const validDefaultTargets = [40, 60, 80, 100].filter(
-    (level) => level > Number(settings.lowLevelThreshold || 0)
-  );
-
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 30 }}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: 30 }}
+    >
       <Text style={styles.title}>HydroTrack</Text>
-      <Text style={styles.subtitle}>System Settings and Configuration</Text>
+      <Text style={styles.subtitle}>
+        System Settings and Configuration
+      </Text>
 
       <View style={styles.statusBadge}>
         <Text style={styles.statusText}>Configuration Panel</Text>
@@ -98,7 +78,9 @@ export default function SettingsScreen() {
         <Field label="Tank Capacity" styles={styles}>
           <TextInput
             value={String(settings.tankCapacity)}
-            onChangeText={(value) => handleChange("tankCapacity", value)}
+            onChangeText={(value) =>
+              handleChange("tankCapacity", value)
+            }
             style={styles.input}
             keyboardType="numeric"
             placeholder="500"
@@ -110,7 +92,9 @@ export default function SettingsScreen() {
           <OptionRow
             options={["L", "Gallons", "m³"]}
             selected={settings.volumeUnit}
-            onSelect={(value) => handleChange("volumeUnit", value)}
+            onSelect={(value) =>
+              handleChange("volumeUnit", value)
+            }
             styles={styles}
           />
         </Field>
@@ -119,17 +103,9 @@ export default function SettingsScreen() {
           <OptionRow
             options={[10, 20, 25, 30, 40, 50]}
             selected={settings.lowLevelThreshold}
-            onSelect={(value) => handleChange("lowLevelThreshold", value)}
-            suffix="%"
-            styles={styles}
-          />
-        </Field>
-
-        <Field label="Default Target Level" styles={styles}>
-          <OptionRow
-            options={validDefaultTargets}
-            selected={settings.defaultTargetLevel}
-            onSelect={(value) => handleChange("defaultTargetLevel", value)}
+            onSelect={(value) =>
+              handleChange("lowLevelThreshold", value)
+            }
             suffix="%"
             styles={styles}
           />
@@ -140,14 +116,18 @@ export default function SettingsScreen() {
         <Toggle
           label="Automatic Pump Control"
           value={settings.autoPumpControl}
-          onChange={(value) => handleChange("autoPumpControl", value)}
+          onChange={(value) =>
+            handleChange("autoPumpControl", value)
+          }
           styles={styles}
         />
 
         <Toggle
           label="Overflow Protection"
           value={settings.overflowProtection}
-          onChange={(value) => handleChange("overflowProtection", value)}
+          onChange={(value) =>
+            handleChange("overflowProtection", value)
+          }
           styles={styles}
         />
 
@@ -155,7 +135,9 @@ export default function SettingsScreen() {
           <OptionRow
             options={["5 min", "10 min", "15 min"]}
             selected={settings.pumpSafetyTimeout}
-            onSelect={(value) => handleChange("pumpSafetyTimeout", value)}
+            onSelect={(value) =>
+              handleChange("pumpSafetyTimeout", value)
+            }
             styles={styles}
           />
         </Field>
@@ -165,30 +147,41 @@ export default function SettingsScreen() {
         <Toggle
           label="Turbidity Monitoring"
           value={settings.turbidityMonitoring}
-          onChange={(value) => handleChange("turbidityMonitoring", value)}
+          onChange={(value) =>
+            handleChange("turbidityMonitoring", value)
+          }
           styles={styles}
         />
 
         <Toggle
           label="Quality Warning Alerts"
           value={settings.qualityAlerts}
-          onChange={(value) => handleChange("qualityAlerts", value)}
+          onChange={(value) =>
+            handleChange("qualityAlerts", value)
+          }
           styles={styles}
         />
       </SettingsCard>
 
-      <SettingsCard title="Notification & Appearance" styles={styles}>
+      <SettingsCard
+        title="Notification & Appearance"
+        styles={styles}
+      >
         <Toggle
           label="Tank Full Alerts"
           value={settings.tankFullAlerts}
-          onChange={(value) => handleChange("tankFullAlerts", value)}
+          onChange={(value) =>
+            handleChange("tankFullAlerts", value)
+          }
           styles={styles}
         />
 
         <Toggle
           label="Low Water Alerts"
           value={settings.lowWaterAlerts}
-          onChange={(value) => handleChange("lowWaterAlerts", value)}
+          onChange={(value) =>
+            handleChange("lowWaterAlerts", value)
+          }
           styles={styles}
         />
 
@@ -196,27 +189,41 @@ export default function SettingsScreen() {
           <OptionRow
             options={["light", "dark"]}
             selected={settings.theme}
-            onSelect={(value) => handleChange("theme", value)}
+            onSelect={(value) =>
+              handleChange("theme", value)
+            }
             styles={styles}
           />
         </Field>
       </SettingsCard>
 
       <View style={styles.actionBar}>
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+        <TouchableOpacity
+          style={styles.saveButton}
+          onPress={handleSave}
+        >
           <Text style={styles.buttonText}>Save Settings</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
+        <TouchableOpacity
+          style={styles.resetButton}
+          onPress={handleReset}
+        >
           <Text style={styles.buttonText}>Reset</Text>
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+      <TouchableOpacity
+        style={styles.logoutButton}
+        onPress={handleLogout}
+      >
         <Text style={styles.buttonText}>Logout</Text>
       </TouchableOpacity>
 
-      <BottomNav currentScreen="settings" themeMode={settings.theme} />
+      <BottomNav
+        currentScreen="settings"
+        themeMode={settings.theme}
+      />
     </ScrollView>
   );
 }
@@ -248,14 +255,24 @@ function Toggle({ label, value, onChange, styles }) {
   );
 }
 
-function OptionRow({ options, selected, onSelect, suffix = "", styles }) {
+function OptionRow({
+  options,
+  selected,
+  onSelect,
+  suffix = "",
+  styles,
+}) {
   return (
     <View style={styles.optionRow}>
       {options.map((item) => (
         <TouchableOpacity
           key={item}
           onPress={() => onSelect(item)}
-          style={selected === item ? styles.optionActive : styles.optionButton}
+          style={
+            selected === item
+              ? styles.optionActive
+              : styles.optionButton
+          }
         >
           <Text style={styles.optionText}>
             {item}
@@ -269,9 +286,24 @@ function OptionRow({ options, selected, onSelect, suffix = "", styles }) {
 
 const getStyles = (theme) =>
   StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.bg, padding: 20 },
-    title: { color: theme.text, fontSize: 34, fontWeight: "900" },
-    subtitle: { color: theme.subtext, marginTop: 4, marginBottom: 16 },
+    container: {
+      flex: 1,
+      backgroundColor: theme.bg,
+      padding: 20,
+    },
+
+    title: {
+      color: theme.text,
+      fontSize: 34,
+      fontWeight: "900",
+    },
+
+    subtitle: {
+      color: theme.subtext,
+      marginTop: 4,
+      marginBottom: 16,
+    },
+
     statusBadge: {
       alignSelf: "flex-start",
       backgroundColor: "rgba(14,165,233,0.12)",
@@ -282,7 +314,12 @@ const getStyles = (theme) =>
       borderRadius: 999,
       marginBottom: 18,
     },
-    statusText: { color: "#38bdf8", fontWeight: "800" },
+
+    statusText: {
+      color: "#38bdf8",
+      fontWeight: "800",
+    },
+
     card: {
       backgroundColor: theme.card,
       borderWidth: 1,
@@ -291,14 +328,24 @@ const getStyles = (theme) =>
       padding: 18,
       marginBottom: 18,
     },
+
     cardTitle: {
       color: theme.text,
       fontSize: 20,
       fontWeight: "800",
       marginBottom: 18,
     },
-    fieldGroup: { marginBottom: 18 },
-    label: { color: theme.subtext, fontWeight: "800", marginBottom: 10 },
+
+    fieldGroup: {
+      marginBottom: 18,
+    },
+
+    label: {
+      color: theme.subtext,
+      fontWeight: "800",
+      marginBottom: 10,
+    },
+
     input: {
       backgroundColor: theme.soft,
       color: theme.text,
@@ -308,6 +355,7 @@ const getStyles = (theme) =>
       padding: 14,
       fontSize: 15,
     },
+
     toggleRow: {
       backgroundColor: theme.soft,
       borderRadius: 14,
@@ -317,8 +365,19 @@ const getStyles = (theme) =>
       justifyContent: "space-between",
       alignItems: "center",
     },
-    toggleLabel: { color: theme.text, fontWeight: "800", flex: 1 },
-    optionRow: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+
+    toggleLabel: {
+      color: theme.text,
+      fontWeight: "800",
+      flex: 1,
+    },
+
+    optionRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 10,
+    },
+
     optionButton: {
       backgroundColor: theme.soft,
       borderWidth: 1,
@@ -327,6 +386,7 @@ const getStyles = (theme) =>
       paddingHorizontal: 14,
       borderRadius: 12,
     },
+
     optionActive: {
       backgroundColor: "#0ea5e9",
       borderWidth: 1,
@@ -335,8 +395,18 @@ const getStyles = (theme) =>
       paddingHorizontal: 14,
       borderRadius: 12,
     },
-    optionText: { color: theme.text, fontWeight: "800" },
-    actionBar: { flexDirection: "row", gap: 12, marginBottom: 18 },
+
+    optionText: {
+      color: theme.text,
+      fontWeight: "800",
+    },
+
+    actionBar: {
+      flexDirection: "row",
+      gap: 12,
+      marginBottom: 18,
+    },
+
     saveButton: {
       flex: 1,
       backgroundColor: "#0ea5e9",
@@ -344,6 +414,7 @@ const getStyles = (theme) =>
       borderRadius: 14,
       alignItems: "center",
     },
+
     resetButton: {
       flex: 1,
       backgroundColor: "#ef4444",
@@ -351,6 +422,7 @@ const getStyles = (theme) =>
       borderRadius: 14,
       alignItems: "center",
     },
+
     logoutButton: {
       backgroundColor: "#f97316",
       padding: 15,
@@ -358,5 +430,9 @@ const getStyles = (theme) =>
       alignItems: "center",
       marginBottom: 20,
     },
-    buttonText: { color: "#ffffff", fontWeight: "900" },
+
+    buttonText: {
+      color: "#ffffff",
+      fontWeight: "900",
+    },
   });
