@@ -9,12 +9,15 @@ import {
   Switch,
   Alert,
 } from "react-native";
+
 import { useRouter } from "expo-router";
+import { ref, set } from "firebase/database";
+
 import { getSettings, saveSettings, resetSettings } from "../../utils/storage";
 import { getAppTheme } from "../../utils/appTheme";
-import { logoutUser } from "../../firebase/config";
-import BottomNav from "../BottomNav";
+import { logoutUser, realtimeDb } from "../../firebase/config";
 
+import BottomNav from "../BottomNav";
 export default function SettingsScreen() {
   const router = useRouter();
   const [settings, setSettings] = useState(null);
@@ -45,6 +48,27 @@ export default function SettingsScreen() {
     setSettings(defaults);
     Alert.alert("Reset", "Settings reset to default");
   };
+
+ const handleChangeWiFi = async () => {
+  try {
+    await set(
+      ref(realtimeDb, "Settings/ResetWiFi"),
+      true
+    );
+
+    Alert.alert(
+      "WiFi Reset",
+      "ESP32 will restart and allow new WiFi setup."
+    );
+  } catch (error) {
+    console.log(error);
+
+    Alert.alert(
+      "Error",
+      error.message
+    );
+  }
+};
 
   const handleLogout = async () => {
     try {
@@ -212,6 +236,16 @@ export default function SettingsScreen() {
           <Text style={styles.buttonText}>Reset</Text>
         </TouchableOpacity>
       </View>
+
+
+      <TouchableOpacity
+  style={styles.wifiButton}
+  onPress={handleChangeWiFi}
+>
+  <Text style={styles.buttonText}>
+    Change WiFi
+  </Text>
+</TouchableOpacity>
 
       <TouchableOpacity
         style={styles.logoutButton}
@@ -423,6 +457,13 @@ const getStyles = (theme) =>
       alignItems: "center",
     },
 
+    wifiButton: {
+  backgroundColor: "#22c55e",
+  padding: 15,
+  borderRadius: 14,
+  alignItems: "center",
+  marginBottom: 18,
+},
     logoutButton: {
       backgroundColor: "#f97316",
       padding: 15,

@@ -49,6 +49,9 @@ export default function DashboardScreen() {
   const [connectionStatus, setConnectionStatus] =
     useState("Connecting...");
 
+  const [deviceConfigured, setDeviceConfigured] =
+    useState(false);
+
   const [pumpOn, setPumpOn] =
     useState(false);
 
@@ -125,6 +128,8 @@ export default function DashboardScreen() {
       sensorRef,
       (snapshot) => {
         if (snapshot.exists()) {
+          setDeviceConfigured(true);
+
           const data = snapshot.val();
 
           const level = Number(data.WaterLevel || 0);
@@ -152,7 +157,7 @@ export default function DashboardScreen() {
 
           offlineTimer = setTimeout(() => {
             setOfflineState();
-          }, 15000);
+          }, 5000);
         } else {
           setOfflineState();
         }
@@ -384,6 +389,13 @@ export default function DashboardScreen() {
     }
   };
 
+  const handleSetupDevice = () => {
+    Alert.alert(
+      "Set Up Device",
+      "Power on the ESP32, connect to HydroTrack_Setup WiFi, then enter your WiFi credentials."
+    );
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -417,6 +429,27 @@ export default function DashboardScreen() {
           {connectionStatus}
         </Text>
       </View>
+
+      {!deviceConfigured && (
+        <View style={styles.setupCard}>
+          <Text style={styles.setupTitle}>
+            Device Not Configured
+          </Text>
+
+          <Text style={styles.setupText}>
+            No HydroTrack device is currently connected. Set up your ESP32 device to begin monitoring.
+          </Text>
+
+          <TouchableOpacity
+            style={styles.setupButton}
+            onPress={handleSetupDevice}
+          >
+            <Text style={styles.buttonText}>
+              Set Up Device
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <View style={styles.card}>
         <View style={styles.cardHeader}>
@@ -788,6 +821,35 @@ const getStyles = (theme) =>
     liveText: {
       color: theme.text,
       fontWeight: "700",
+    },
+
+    setupCard: {
+      backgroundColor: theme.card,
+      borderRadius: 22,
+      padding: 18,
+      marginBottom: 18,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+
+    setupTitle: {
+      color: theme.text,
+      fontSize: 20,
+      fontWeight: "800",
+      marginBottom: 10,
+    },
+
+    setupText: {
+      color: theme.subtext,
+      lineHeight: 22,
+      marginBottom: 16,
+    },
+
+    setupButton: {
+      backgroundColor: "#22c55e",
+      padding: 14,
+      borderRadius: 14,
+      alignItems: "center",
     },
 
     card: {
