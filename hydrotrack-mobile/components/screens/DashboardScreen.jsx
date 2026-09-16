@@ -29,6 +29,11 @@ import { getAppTheme } from "../../utils/appTheme";
 
 import BottomNav from "../BottomNav";
 
+import {
+  requestNotificationPermission,
+  sendLocalNotification,
+} from "../../utils/notifications";
+
 const TANK_HEIGHT = 230;
 
 export default function DashboardScreen() {
@@ -61,9 +66,30 @@ export default function DashboardScreen() {
   const [currentVolume, setCurrentVolume] =
     useState(0);
 
+  const [lowWaterSent, setLowWaterSent] =
+    useState(false);
+
+  const [tankFullSent, setTankFullSent] =
+    useState(false);
+
+  const [qualitySent, setQualitySent] =
+    useState(false);
+
+  const [offlineSent, setOfflineSent] =
+    useState(false);
+
+  const [sensorDataReady, setSensorDataReady] =
+    useState(false);
+
+  const [liveConfirmed, setLiveConfirmed] =
+    useState(false);
+
   const animatedLevel = useRef(
     new Animated.Value(0)
   ).current;
+
+  // Device must be confirmed Live before an Offline notification can fire.
+  const wasDeviceLive = useRef(false);
 
   const targetOptions = Array.from(
     { length: 10 },
@@ -72,6 +98,8 @@ export default function DashboardScreen() {
 
   useEffect(() => {
     const loadSettings = async () => {
+      await requestNotificationPermission();
+
       const saved = await getSettings();
 
       setSettings(saved);
@@ -110,66 +138,98 @@ export default function DashboardScreen() {
   useEffect(() => {
     if (!settings) return;
 
-    const sensorRef = ref(
-      realtimeDb,
-      "/Sensor"
-    );
-
-    let offlineTimer;
+    const sensorRef = ref(realtimeDb, "/Sensor");
+    const startedAt = Date.now();
+    let lastHeartbeat = 0;
+    let previousHeartbeat = null;
+    let freshHeartbeatReceived = false;
 
     const setOfflineState = () => {
       setConnectionStatus("Offline");
-      setWaterQuality("Unknown");
-      setTurbidityValue(0);
-      setPumpOn(false);
     };
 
-    const unsubscribe = onValue(
-      sensorRef,
-      (snapshot) => {
-        if (snapshot.exists()) {
-          setDeviceConfigured(true);
-
-          const data = snapshot.val();
-
-          const level = Number(data.WaterLevel || 0);
-          const turbidity = Number(data.Turbidity || 0);
-          const capacity = Number(settings.tankCapacity || 0);
-
-          setWaterLevel(level);
-          setTurbidityValue(turbidity);
-          setWaterQuality(getQualityFromTurbidity(turbidity));
-          setConnectionStatus("Live");
-
-          setCurrentVolume(
-            Math.round((level / 100) * capacity)
-          );
-
-          setLastUpdated(
-            new Date().toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-            })
-          );
-
-          if (offlineTimer) clearTimeout(offlineTimer);
-
-          offlineTimer = setTimeout(() => {
-            setOfflineState();
-          }, 5000);
-        } else {
+    const checkHeartbeat = () => {
+      if (freshHeartbeatReceived && lastHeartbeat > 0) {
+        const age = Date.now() - lastHeartbeat;
+        if (age > 15000) {
           setOfflineState();
+        } else {
+          setConnectionStatus("Live");
         }
+        return;
       }
-    );
+
+      // Do not call the device offline immediately after login.
+      // Wait for the ESP32 to send a NEW heartbeat in this session.
+      if (Date.now() - startedAt > 20000) {
+        setOfflineState();
+      } else {
+        setConnectionStatus("Connecting...");
+      }
+    };
+
+    const unsubscribe = onValue(sensorRef, (snapshot) => {
+      if (!snapshot.exists()) {
+        setDeviceConfigured(false);
+        setSensorDataReady(false);
+        setLiveConfirmed(false);
+        setOfflineState();
+        return;
+      }
+
+      setDeviceConfigured(true);
+
+      const data = snapshot.val();
+      const level = Number(data.WaterLevel ?? 0);
+      const turbidity = Number(data.Turbidity ?? 0);
+      const capacity = Number(settings.tankCapacity || 0);
+      const heartbeat = Number(data.lastUpdated || 0);
+
+      if (heartbeat > 0) {
+        if (previousHeartbeat !== null && heartbeat !== previousHeartbeat) {
+          freshHeartbeatReceived = true;
+          setLiveConfirmed(true);
+          setSensorDataReady(true);
+          wasDeviceLive.current = true;
+        }
+
+        previousHeartbeat = heartbeat;
+        lastHeartbeat = heartbeat;
+
+        setLastUpdated(
+          new Date(heartbeat).toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          })
+        );
+      }
+
+      setWaterLevel(level);
+      setTurbidityValue(turbidity);
+
+      // The ESP32 makes the calibrated Clean/Dirty decision.
+      // The dashboard does not use the old 150/350 thresholds anymore.
+      const deviceQuality = String(data.WaterQuality || "").trim();
+      setWaterQuality(
+        getQualityFromTurbidity(turbidity, deviceQuality)
+      );
+
+      const reportedPumpStatus = String(data.PumpStatus || "OFF").toUpperCase();
+      setPumpOn(reportedPumpStatus === "ON");
+
+      setCurrentVolume(
+        Math.round((level / 100) * capacity)
+      );
+
+      checkHeartbeat();
+    });
+
+    const heartbeatTimer = setInterval(checkHeartbeat, 2000);
 
     return () => {
       unsubscribe();
-
-      if (offlineTimer) {
-        clearTimeout(offlineTimer);
-      }
+      clearInterval(heartbeatTimer);
     };
   }, [settings]);
 
@@ -182,8 +242,6 @@ export default function DashboardScreen() {
       targetLevel !== null &&
       waterLevel >= targetLevel
     ) {
-      setPumpOn(false);
-
       Alert.alert(
         "Target Reached",
         `Pump stopped automatically at ${targetLevel}%`
@@ -195,8 +253,6 @@ export default function DashboardScreen() {
       pumpOn &&
       waterLevel >= 100
     ) {
-      setPumpOn(false);
-
       Alert.alert(
         "Overflow Protection",
         "Pump stopped to prevent overflow."
@@ -207,6 +263,99 @@ export default function DashboardScreen() {
     targetLevel,
     pumpOn,
     settings,
+  ]);
+
+  // Notifications should only be evaluated after we have received
+  // a real sensor snapshot. This prevents false alerts on startup
+  // when waterLevel is still the initial 0 and waterQuality is Unknown.
+  useEffect(() => {
+    if (!settings || !sensorDataReady || !liveConfirmed) return;
+
+    const lowLevelThreshold = Number(
+      settings.lowLevelThreshold || 0
+    );
+
+    if (
+      settings.lowWaterAlerts &&
+      waterLevel <= lowLevelThreshold &&
+      !lowWaterSent
+    ) {
+      sendLocalNotification(
+        "Low Water Alert",
+        `Water level is ${waterLevel}%`
+      );
+      setLowWaterSent(true);
+    }
+
+    if (waterLevel > lowLevelThreshold) {
+      setLowWaterSent(false);
+    }
+
+    if (
+      settings.tankFullAlerts &&
+      waterLevel >= 100 &&
+      !tankFullSent
+    ) {
+      sendLocalNotification(
+        "Tank Full",
+        "Tank has reached 100% capacity."
+      );
+      setTankFullSent(true);
+    }
+
+    if (waterLevel < 100) {
+      setTankFullSent(false);
+    }
+
+    if (
+      settings.qualityAlerts &&
+      waterQuality === "Dirty" &&
+      !qualitySent
+    ) {
+      sendLocalNotification(
+        "Water Quality Warning",
+        "Water quality is poor."
+      );
+      setQualitySent(true);
+    }
+
+    if (
+      waterQuality !== "Dirty"
+    ) {
+      setQualitySent(false);
+    }
+
+    // Only allow an Offline notification after the ESP32 has
+    // previously been confirmed Live. This prevents false
+    // Offline alerts during startup or temporary UI transitions.
+    if (connectionStatus === "Live") {
+      wasDeviceLive.current = true;
+      setOfflineSent(false);
+    }
+
+    if (
+      connectionStatus === "Offline" &&
+      wasDeviceLive.current &&
+      !offlineSent
+    ) {
+      sendLocalNotification(
+        "Device Offline",
+        "HydroTrack device is offline."
+      );
+      setOfflineSent(true);
+    }
+  }, [
+    waterLevel,
+    turbidityValue,
+    waterQuality,
+    connectionStatus,
+    settings,
+    sensorDataReady,
+    liveConfirmed,
+    lowWaterSent,
+    tankFullSent,
+    qualitySent,
+    offlineSent,
   ]);
 
   if (!settings) return null;
@@ -239,30 +388,31 @@ export default function DashboardScreen() {
       outputRange: [0, TANK_HEIGHT],
     });
 
-  function getQualityFromTurbidity(
-    value
-  ) {
+  function getQualityFromTurbidity(value, deviceQuality) {
+    const reported = String(deviceQuality || "").trim();
+
+    // Prefer the calibrated decision made by the ESP32.
+    if (reported === "Clean" || reported === "Dirty") {
+      return reported;
+    }
+
+    // Only used while an older/empty Firebase record has no WaterQuality.
     if (value <= 0) return "Unknown";
-
-    if (value < 150) return "Clean";
-
-    if (value < 350) return "Moderate";
-
-    return "Dirty";
+    if (value <= 850) return "Dirty";
+    if (value >= 1000) return "Clean";
+    return "Unknown";
   }
 
   const getQualityColor = () => {
     if (waterQuality === "Clean")
       return "#22c55e";
 
-    if (waterQuality === "Moderate")
-      return "#f59e0b";
-
     if (waterQuality === "Dirty")
       return "#ef4444";
 
     return "#38bdf8";
   };
+
 
   const getRecommendedAction = () => {
     if (connectionStatus !== "Live") {
@@ -271,6 +421,10 @@ export default function DashboardScreen() {
 
     if (waterQuality === "Dirty") {
       return "Check water quality.";
+    }
+
+    if (waterQuality === "Unknown") {
+      return "Waiting for water-quality reading.";
     }
 
     if (
@@ -341,7 +495,21 @@ export default function DashboardScreen() {
       return;
     }
 
+    // A pump command is a physical-device operation. Only allow it
+    // when the ESP32 is currently reporting Live.
+    if (connectionStatus !== "Live") {
+      Alert.alert(
+        "Device Offline",
+        "Please connect the HydroTrack device to Wi-Fi before starting the pump."
+      );
+
+      return;
+    }
+
     try {
+      // Send the command immediately. Do NOT wait here for Firebase
+      // polling; the dashboard's /Sensor listener will update the
+      // pump status as soon as the ESP32 reports the real state.
       await set(
         ref(realtimeDb, "/Pump"),
         {
@@ -350,22 +518,32 @@ export default function DashboardScreen() {
         }
       );
 
-      setPumpOn(true);
-
       Alert.alert(
         "Pump Started",
-        `Pump started toward ${targetLevel}%`
+        "The pump has been started."
       );
     } catch (error) {
       Alert.alert(
-        "Error",
-        "Could not send pump command."
+        "Connection Error",
+        "Could not send the pump command. Check your internet connection and make sure the HydroTrack device is online."
       );
     }
   };
 
   const handleStopPump = async () => {
+    // Stopping is also a physical-device command.
+    if (connectionStatus !== "Live") {
+      Alert.alert(
+        "Device Offline",
+        "Please connect the HydroTrack device to Wi-Fi before stopping the pump."
+      );
+
+      return;
+    }
+
     try {
+      // Send the stop command immediately. The existing Firebase
+      // listener is responsible for reflecting the actual ESP32 state.
       await set(
         ref(realtimeDb, "/Pump"),
         {
@@ -375,16 +553,14 @@ export default function DashboardScreen() {
         }
       );
 
-      setPumpOn(false);
-
       Alert.alert(
         "Pump Stopped",
-        "Pump stopped successfully."
+        "The pump has been stopped."
       );
     } catch (error) {
       Alert.alert(
-        "Error",
-        "Could not stop pump."
+        "Connection Error",
+        "Could not send the pump command. Check your internet connection and make sure the HydroTrack device is online."
       );
     }
   };
@@ -616,7 +792,7 @@ export default function DashboardScreen() {
         </View>
 
         <InfoRow
-          label="Turbidity"
+          label="Turbidity Index"
           value={turbidityValue}
           styles={styles}
         />

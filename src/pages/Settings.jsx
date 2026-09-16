@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import {
   getSettings,
@@ -7,9 +7,13 @@ import {
   saveAlert,
 } from "../utils/storage";
 import { themeColors } from "../utils/theme";
+import { logoutUser } from "../firebase/auth";
+import { ref, set } from "firebase/database";
+import { realtimeDb } from "../firebase/config";
 
 function Settings() {
   const [settings, setSettings] = useState(getSettings());
+  const navigate = useNavigate();
 
   useEffect(() => {
     setSettings(getSettings());
@@ -76,6 +80,20 @@ function Settings() {
     saveHistoryEvent("System settings reset to default");
     saveAlert("Settings reset to default", "info");
     window.location.reload();
+  };
+
+  const handleChangeWiFi = async () => {
+    try {
+      await set(ref(realtimeDb, "/Settings"), { ResetWiFi: true });
+      alert("ESP32 will restart and allow new WiFi setup.");
+    } catch {
+      alert("Failed to send WiFi reset command.");
+    }
+  };
+
+  const handleLogout = async () => {
+    await logoutUser();
+    navigate("/");
   };
 
   const validDefaultTargets = [40, 60, 80, 100].filter(
@@ -218,6 +236,12 @@ function Settings() {
         </button>
         <button style={styles.resetButton} onClick={handleReset}>
           Reset
+        </button>
+        <button style={styles.wifiButton} onClick={handleChangeWiFi}>
+          Change WiFi
+        </button>
+        <button style={styles.logoutButton} onClick={handleLogout}>
+          Sign Out
         </button>
       </div>
 
@@ -390,6 +414,26 @@ const getStyles = (theme) => ({
     cursor: "pointer",
   },
 
+  wifiButton: {
+    background: "#22c55e",
+    color: "#ffffff",
+    border: "none",
+    borderRadius: "12px",
+    padding: "13px 18px",
+    fontWeight: "bold",
+    cursor: "pointer",
+  },
+
+  logoutButton: {
+    background: "#ef4444",
+    color: "#ffffff",
+    border: "none",
+    borderRadius: "12px",
+    padding: "13px 18px",
+    fontWeight: "bold",
+    cursor: "pointer",
+  },
+
   resetButton: {
     background: theme.softBg,
     color: theme.text,
@@ -425,4 +469,4 @@ const getStyles = (theme) => ({
   },
 });
 
-export default Settings;
+export default Settings;gt

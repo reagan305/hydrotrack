@@ -1,12 +1,10 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { ref, onValue } from "firebase/database";
-import { logoutUser } from "../firebase/auth";
 import { realtimeDb } from "../firebase/config";
 import { getSettings } from "../utils/storage";
 import { themeColors } from "../utils/theme";
 function Dashboard() {
-  const navigate = useNavigate();
   const theme = themeColors();
   const [settings, setSettings] = useState(getSettings());
   const [waterLevel, setWaterLevel] = useState(0);
@@ -98,9 +96,10 @@ function Dashboard() {
     if (waterLevel >= targetLevel) return "Target reached. Pump can stay off.";
     return "System normal. Continue monitoring.";
   };
-  const targetOptions = [40, 60, 80, 100].filter(
-    (level) => level > Number(settings.lowLevelThreshold || 0)
-  );
+  const targetOptions = Array.from(
+  { length: 10 },
+  (_, i) => (i + 1) * 10
+);
   const tankCapacityNumber = parseInt(settings.tankCapacity) || 0;
   const remainingLitres = Math.max(tankCapacityNumber - currentLitres, 0);
   const handleTargetChange = (level) => {
@@ -116,10 +115,6 @@ function Dashboard() {
   };
   const isLive = connectionStatus === "Live";
   const statusColor = isLive ? "#22c55e" : "#ef4444";
-  const handleLogout = async () => {
-    await logoutUser();
-    navigate("/");
-  };
   const styles = getStyles(theme, statusColor);
   return (
     <div style={styles.page}>
@@ -162,9 +157,6 @@ function Dashboard() {
             <span style={styles.liveDot}></span>
             {connectionStatus}
           </div>
-          <button onClick={handleLogout} style={styles.logoutButton}>
-            Sign Out
-          </button>
         </div>
       </div>
       <div style={styles.dashboardGrid}>
@@ -400,15 +392,6 @@ const getStyles = (theme, statusColor) => ({
     background: statusColor,
     borderRadius: "50%",
   },
-  logoutButton: {
-    background: "rgba(239,68,68,0.15)",
-    color: "#fecaca",
-    border: "1px solid rgba(239,68,68,0.4)",
-    padding: "10px 16px",
-    borderRadius: "12px",
-    cursor: "pointer",
-    fontWeight: "bold",
-  },
   dashboardGrid: {
     display: "grid",
     gridTemplateColumns: "1.4fr 1fr 1fr",
@@ -564,12 +547,15 @@ const getStyles = (theme, statusColor) => ({
     fontSize: "14px",
   },
   targetButtons: {
-    display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
-    gap: "9px",
+    display: "flex",
+    gap: "12px",
     margin: "14px 0",
+    overflowX: "auto",
+    paddingBottom: "6px",
   },
   targetButton: {
+    minWidth: "80px",
+    flexShrink: 0,
     background: theme.softBg,
     color: theme.text,
     border: `1px solid ${theme.border}`,
@@ -579,6 +565,8 @@ const getStyles = (theme, statusColor) => ({
     cursor: "pointer",
   },
   targetButtonActive: {
+    minWidth: "80px",
+    flexShrink: 0,
     background: "#0ea5e9",
     color: "#ffffff",
     border: "1px solid #0ea5e9",
