@@ -3,7 +3,7 @@
 #include <Firebase_ESP_Client.h>
 
 #define DATABASE_URL "https://hydrotrack-a91e4-default-rtdb.europe-west1.firebasedatabase.app/"
-#define DATABASE_SECRET "YOUR_FIREBASE_DATABASE_SECRET"
+#define DATABASE_SECRET "database secret"
 
 #define TRIG_PIN 5
 #define ECHO_PIN 18
